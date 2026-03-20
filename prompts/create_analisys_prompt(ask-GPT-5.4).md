@@ -1,0 +1,2 @@
+genera un prompt per eseguire il seguente task: analizza il package java kata che si trova sotto java-kata\src\main\java\kata utilizzando il file di istruzioni .github/copilot-instructions.md. Il prompt deve essere preciso e coinciso per chiedere che questa attività venga effettuata con precisione e con una corretta comprensione del file  .github/copilot-instructions.md
+Scrivi le tue risposte nel file prompts/analisys_prompt_result(ask-GPT-5.4).md

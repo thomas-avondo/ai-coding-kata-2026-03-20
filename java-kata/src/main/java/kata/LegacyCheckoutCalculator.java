@@ -4,103 +4,13 @@ public class LegacyCheckoutCalculator {
 
     public int calculateTotalCents(Order order) {
         int subtotal = order.subtotalCents();
-        int discountPercent = 0;
-        String customerType = safe(order.customerType());
+        CustomerType customerType = CustomerType.fromString(order.customerType());
         String country = safe(order.country());
         String coupon = safe(order.couponCode());
-
-        if (customerType.equals("vip")) {
-            discountPercent = discountPercent + 15;
-        } else if (customerType.equals("premium")) {
-            if (subtotal >= 10000) {
-                discountPercent = discountPercent + 10;
-            } else {
-                discountPercent = discountPercent + 5;
-            }
-        } else if (customerType.equals("employee")) {
-            discountPercent = discountPercent + 30;
-        } else if (customerType.equals("regular") || customerType.equals("new")) {
-            discountPercent = discountPercent + 0;
-        } else {
-            discountPercent = discountPercent + 0;
-        }
-
-        if (coupon.equals("SAVE10")) {
-            if (subtotal >= 5000) {
-                discountPercent = discountPercent + 10;
-            }
-        } else if (coupon.equals("VIPONLY")) {
-            if (customerType.equals("vip")) {
-                discountPercent = discountPercent + 5;
-            }
-        } else if (coupon.equals("BULK")) {
-            if (subtotal >= 20000) {
-                discountPercent = discountPercent + 7;
-            }
-        }
-
-        if (order.blackFriday()) {
-            if (!customerType.equals("employee")) {
-                discountPercent = discountPercent + 5;
-            }
-        }
-
-        if (discountPercent > 40) {
-            discountPercent = 40;
-        }
-
+        int discountPercent = calculateDiscountPercent(customerType, subtotal, coupon, order.blackFriday());
         int discountedSubtotal = subtotal * (100 - discountPercent) / 100;
-
-        int shippingCents;
-        if (country.equals("IT")) {
-            shippingCents = 700;
-        } else if (country.equals("DE")) {
-            shippingCents = 900;
-        } else if (country.equals("US")) {
-            shippingCents = 1500;
-        } else {
-            shippingCents = 2500;
-        }
-
-        if (order.blackFriday() && country.equals("US")) {
-            shippingCents = shippingCents + 300;
-        }
-
-        if (coupon.equals("FREESHIP") && discountedSubtotal >= 8000) {
-            shippingCents = 0;
-        }
-
-        if (customerType.equals("vip") && discountedSubtotal >= 15000) {
-            shippingCents = 0;
-        }
-
-        if (customerType.equals("premium") && discountedSubtotal >= 20000) {
-            shippingCents = 0;
-        }
-
-        if (customerType.equals("employee") && !country.equals("IT")) {
-            shippingCents = shippingCents + 500;
-        }
-
-        int taxPercent;
-        if (country.equals("IT")) {
-            taxPercent = 22;
-        } else if (country.equals("DE")) {
-            taxPercent = 19;
-        } else if (country.equals("US")) {
-            taxPercent = 7;
-        } else {
-            taxPercent = 0;
-        }
-
-        if (customerType.equals("vip") && country.equals("IT")) {
-            taxPercent = 20;
-        }
-
-        if (coupon.equals("TAXFREE") && !country.equals("IT")) {
-            taxPercent = 0;
-        }
-
+        int shippingCents = calculateShippingCents(customerType, country, coupon, discountedSubtotal, order.blackFriday());
+        int taxPercent = calculateTaxPercent(customerType, country, coupon);
         int taxCents = discountedSubtotal * taxPercent / 100;
         int total = discountedSubtotal + shippingCents + taxCents;
 
@@ -109,6 +19,88 @@ public class LegacyCheckoutCalculator {
         }
 
         return total;
+    }
+
+    private int calculateDiscountPercent(CustomerType customerType, int subtotal, String coupon, boolean blackFriday) {
+        int discountPercent = customerType.baseDiscount(subtotal);
+        discountPercent += calculateCouponDiscountPercent(customerType, subtotal, coupon);
+        discountPercent += customerType.blackFridayDiscount(blackFriday);
+
+        if (discountPercent > 40) {
+            return 40;
+        }
+
+        return discountPercent;
+    }
+
+    private int calculateCouponDiscountPercent(CustomerType customerType, int subtotal, String coupon) {
+        if (coupon.equals("SAVE10")) {
+            return subtotal >= 5000 ? 10 : 0;
+        }
+
+        if (coupon.equals("BULK")) {
+            return subtotal >= 20000 ? 7 : 0;
+        }
+
+        return customerType.couponDiscount(coupon, subtotal);
+    }
+
+    private int calculateShippingCents(CustomerType customerType, String country, String coupon, int discountedSubtotal,
+            boolean blackFriday) {
+        int shippingCents = baseShippingCents(country);
+
+        if (blackFriday && country.equals("US")) {
+            shippingCents += 300;
+        }
+
+        if ((coupon.equals("FREESHIP") && discountedSubtotal >= 8000) || customerType.hasFreeShipping(discountedSubtotal)) {
+            shippingCents = 0;
+        }
+
+        shippingCents += customerType.shippingSurcharge(country);
+
+        return shippingCents;
+    }
+
+    private int baseShippingCents(String country) {
+        if (country.equals("IT")) {
+            return 700;
+        }
+
+        if (country.equals("DE")) {
+            return 900;
+        }
+
+        if (country.equals("US")) {
+            return 1500;
+        }
+
+        return 2500;
+    }
+
+    private int calculateTaxPercent(CustomerType customerType, String country, String coupon) {
+        Integer override = customerType.taxOverridePercent(country);
+        if (override != null) {
+            return override;
+        }
+
+        if (country.equals("IT")) {
+            return 22;
+        }
+
+        if (coupon.equals("TAXFREE")) {
+            return 0;
+        }
+
+        if (country.equals("DE")) {
+            return 19;
+        }
+
+        if (country.equals("US")) {
+            return 7;
+        }
+
+        return 0;
     }
 
     private String safe(String value) {

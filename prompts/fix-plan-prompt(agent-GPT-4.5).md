@@ -1,0 +1,1 @@
+Analizza il package Java in java-kata/src/main/java/kata seguendo rigorosamente .github/copilot-instructions.md. Ho già usato un altro Agent (GPT-5.4) per eseguire il lavoro: fai un check sul lavoro svolto usando il file prompts/solution-plan.md. migliora eventualmente i test e il codice. Controlla che la build sia corretta e esegui tutti i test. 
